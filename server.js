@@ -13,6 +13,9 @@ const mongoose = require('mongoose')
 // const imageModel = require('./models/imageModel')
 // const multer = require('multer')
 const PORT = process.env.PORT || 3000
+const ws = require('ws');
+const cron = require('node-cron')
+const nodemailer = require('nodemailer')
 
 // app.use(logger)
 
@@ -30,75 +33,53 @@ app.use(bodyParser.json())
 
 app.use(errorHandler)
 
-// const Storage = multer.diskStorage({
-//     destination: 'uploads',
-//     filename: (req, file, cb) => {
-//         cb(null, file.originalname)
-//     }
-// })
-
-// const upload = multer({
-//     storage: Storage
-// }).single('testImage')
-
-// var storage = multer.diskStorage({
-//     destination: function (req, file, cb) {
-//         cb(null, 'uploads')
-//     },
-//     filename: function (req, file, cb) {
-//         cb(null, file.fieldname + '-' + Date.now())
-//     }
-// })
-// // console.log('rwrwr', s)
-// console.log('str', storage)
-
-// var upload = multer({ storage: storage })
-// console.log('wrwr', upload)
-// app.post("/uploadphoto", upload.single('myImage'), (req, res) => {
-//     var img = fs.readFileSync(req.file.path);
-//     var encode_img = img.toString('base64');
-//     var final_img = {
-//         contentType: req.file.mimetype,
-//         image: new Buffer(encode_img, 'base64')
-//     };
-//     imageModel.create(final_img, function (err, result) {
-//         if (err) {
-//             console.log(err);
-//         } else {
-//             console.log(result.img.Buffer);
-//             console.log("Saved To database");
-//             res.contentType(final_img.contentType);
-//             res.send(final_img.image);
-//         }
+// app.get('/', (req, res) => {
+//     res.json({
+//         message: 'Welcome to store'
 //     })
 // })
-
-// app.use('/', express.static(path.join(__dirname, '/public')));
-
-// app.all('*', (req, res) => {
-//     res.status(404);
-//     if (req.accepts('html')) {
-//         res.sendFile(path.join(__dirname, 'views', '404.html'));
-//     } else if (req.accepts('json')) {
-//         res.json({ "error": "404 Not Found" });
-//     } else {
-//         res.type('txt').send("404 Not Found");
-//     }
-// });
-
-app.get('/', (req, res) => {
-    res.json({
-        message: 'Welcome to store'
-    })
-})
 
 app.use('/api/v1/auth', require('./routes/authRouter'))
 app.use('/api/v1/', require('./routes/userRouter'))
 app.use('/api/v1/', require('./routes/roleRouter'))
 app.use('/api/v1/product', require('./routes/productRouter'))
 app.use('/uploads', express.static('uploads'))
+app.use('/api/gmail', require('./routes/sendMailRouter'))
 
+var task = cron.schedule('1 * * * *', async() => {
+    console.log('Running task every second');
+    await sendEmail().then(console.log('sukses', sendEmail))
+});
+task.start()
 // app.use('/api/products', require('./routes/products'))
+
+// // send email
+async function sendEmail() {
+    let transaction, income, configMail, transporter, emailTarget, mail;
+
+    transaction = Math.floor(Math.random() * 10) + 1;
+
+    income = `Rp ${transaction * 10000},00`;
+
+    configMail = {
+        service: 'gmail',
+        auth: {
+            user: 'ridwanrmdhn765@gmail.com',
+            pass: process.env.PASS_MAIL
+        }
+    };
+
+    transporter = nodemailer.createTransport(configMail);
+    emailTarget = 'mykhailomudryk1920@gmail.com';
+    console.log('task', configMail)
+    mail = {
+        to: emailTarget,
+        from: configMail.auth.user,
+        subject: '[Daily Report] - Transaction & Total Income',
+        html: `This is your Daily report. Total <b>success Transaction : ${transaction} </b>   and Total <b>Income : ${income} </b>`
+    };
+    transporter.sendMail(mail);
+}
 
 mongoose.connect(process.env.DB_CONNECTION).then(() => {
     app.listen(PORT, () => console.log(PORT))
